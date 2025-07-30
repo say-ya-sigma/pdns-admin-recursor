@@ -1,0 +1,53 @@
+services:
+    powerdns:
+        build: .
+        ports:
+            - 8081:8081
+        environment:
+            - PDNS_LOG_LEVEL=4
+            - PDNS_API_KEY=34H5G34J5H43H34
+            - PDNS_WEBSERVER_PASSWORD=123456
+            - PDNS_WEBSERVER_ALLOWED_FROM=127.0.0.1,::1,172.0.0.0/8
+        volumes:
+            - ./pdns/:/pdns/
+        networks:
+            powerdns:
+                ipv4_address: 172.23.0.2
+    recursor:
+        build:
+            context: .
+            dockerfile: recursor.dockerfile
+        restart: always
+        ports:
+            - 53:53
+            - 53:53/udp
+        volumes:
+            - ./recursor.conf:/etc/pdns/recursor.conf
+        networks:
+            powerdns:
+                ipv4_address: 172.23.0.3
+    dnsadmin:
+        image: powerdnsadmin/pda-legacy:latest
+        environment:
+            - SQLALCHEMY_DATABASE_URI=sqlite:////pdns/pdns_db.sqlite
+            - GUINCORN_TIMEOUT=60
+            - GUNICORN_WORKERS=2
+            - GUNICORN_LOGLEVEL=DEBUG
+        volumes:
+            - ./pdns/:/pdns/
+        ports:
+            - 80:80
+        logging:
+            driver: json-file
+            options:
+              max-size: 10m
+
+networks:
+    powerdns:
+        driver: bridge
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.23.0.0/16
+                  gateway: 172.23.0.1
+
